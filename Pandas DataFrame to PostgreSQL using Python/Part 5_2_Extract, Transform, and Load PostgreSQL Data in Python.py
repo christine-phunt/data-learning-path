@@ -92,6 +92,9 @@ filled_table = etl.filldown(extractData, 'petal_width')
 print(filled_table)
 
 transposed_table = etl.transpose(extractData)
+reshaped_table = etl.reshape(extractData, key=[
+                             'species_id', 'species_name'], variablefield='measurement', valuefield='value')
+
 # Display the result
 print(transposed_table)
 
@@ -100,3 +103,4 @@ etl.tocsv(joined_table, 'iris_joined_table.csv')
 etl.tocsv(transformData, 'iris_transformData.csv')
 etl.tocsv(filled_table, 'iris_filled_table.csv')
 etl.tocsv(transposed_table, 'iris_transposed_table.csv')
+etl.tocsv(reshaped_table, 'iris_reshaped_table.csv')
