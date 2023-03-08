@@ -219,6 +219,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     create_view(conn)
-    print("done creating a view")
+    print("Done creating a view. See Views > member_month_summary")
 
     conn.close()
