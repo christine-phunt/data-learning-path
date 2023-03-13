@@ -1,4 +1,5 @@
 import argparse
+import io
 import os
 from datetime import datetime
 from pyarrow import parquet as pq
@@ -6,6 +7,8 @@ import psycopg2
 from psycopg2 import sql
 from psycopg2 import OperationalError, errorcodes, errors
 import psycopg2.extras
+import time
+import chardet
 
 
 import os
@@ -141,6 +144,73 @@ def load_parquet_to_postgres(conn, file_path, start_date=None, end_date=None):
         conn.commit()
 
 
+def load_parquet_to_postgres_optimized2(conn, file_path, start_date=None, end_date=None):
+    """Load data from a parquet file into a Postgres database"""
+    # Load the parquet file into a Pandas DataFrame
+    table = pq.read_table(file_path)
+    df = table.to_pandas()
+
+    # Define the SQL query
+    sql = """
+    INSERT INTO transactions (member_id, member_name, transaction_type, created_date, price)
+    VALUES ({{member_id}}, {{member_name}}, {{transaction_type}}, {{created_date}}, {{price}})
+    """
+
+    # Use context managers for the database connection and cursor
+    with conn, conn.cursor() as cur:
+        # Drop the 'transactions' table if '-f' is used
+        if start_date is None and end_date is None:
+            drop_table(conn)
+            create_table(conn)
+
+        # Check if the 'transactions' table exists if '-p' is used
+        else:
+            check_partial_load_availability(conn)
+
+        # Delete all rows outside the specified date range if '-p' is used
+        if start_date is not None and end_date is not None:
+            delete_rows_outside_date_range(conn, start_date, end_date)
+
+        # Use a prepared statement for the insert
+        cur.execute("PREPARE transaction_insert AS {}".format(sql))
+
+        # Use a StringIO object to create a file-like object for the data
+        data = io.StringIO(
+            df.to_csv(index=False, header=False, sep="\t", na_rep="\\N"))
+
+        # Use the copy_from method to copy data from the file-like object
+        cur.copy_from(data, "transactions", sep="\t", null="\\N")
+
+        # Commit the transaction
+        conn.commit()
+
+
+def load_parquet_to_postgres_optimized(conn, file_path, start_date=None, end_date=None, chunksize=100000):
+    """Load data from a parquet file into a Postgres database"""
+    # Connect to the database
+    with conn.cursor() as cur:
+        # Drop the 'transactions' table if '-f' is used
+        if start_date is None and end_date is None:
+            drop_table(conn)
+            create_table(conn)
+
+        # Check if the 'transactions' table exists if '-p' is used
+        else:
+            check_partial_load_availability(conn)
+
+        # Use COPY command to load the data in bulk
+        with open(file_path, 'r') as f:
+            with conn.cursor() as cur:
+                cur.copy_from(f, 'transactions', sep=',', columns=(
+                    'member_id', 'member_name', 'transaction_type', 'created_date', 'price'))
+
+        # Delete all rows outside the specified date range if '-p' is used
+        if start_date is not None and end_date is not None:
+            delete_rows_outside_date_range(conn, start_date, end_date)
+
+        conn.commit()
+
+
 def create_view(conn):
     # create cursor
     cur = conn.cursor()
@@ -181,6 +251,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     print(args)
+    start_time = time.time()  # get current time
 
     conn = connect(conn_params_dic)
     conn.autocommit = True
@@ -190,7 +261,7 @@ if __name__ == '__main__':
     if args.full_load:
         drop_table(conn)
         create_table(conn)
-        load_parquet_to_postgres(conn, args.file)
+        load_parquet_to_postgres_optimized(conn, args.file)
         print("Done loading data by full load ....")
 
     elif args.partial_load:
@@ -210,6 +281,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
         check_partial_load_availability(conn)
+        load_parquet_to_postgres(conn, args.file)
         delete_rows_outside_date_range(conn, start_date, end_date)
 
         print("Done loading data by partial load ....")
@@ -220,5 +292,9 @@ if __name__ == '__main__':
 
     create_view(conn)
     print("Done creating a view. See Views > member_month_summary")
+    end_time = time.time()  # get current time again
+
+    elapsed_time = end_time - start_time
+    print(f"Processing took {elapsed_time:.2f} seconds.")
 
     conn.close()
