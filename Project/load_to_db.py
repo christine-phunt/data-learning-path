@@ -153,7 +153,7 @@ def load_parquet_to_postgres_optimized2(conn, file_path, start_date=None, end_da
     # Define the SQL query
     sql = """
     INSERT INTO transactions (member_id, member_name, transaction_type, created_date, price)
-    VALUES ({{member_id}}, {{member_name}}, {{transaction_type}}, {{created_date}}, {{price}})
+    VALUES ($1, $2, $3, $4, $5)
     """
 
     # Use context managers for the database connection and cursor
@@ -185,7 +185,7 @@ def load_parquet_to_postgres_optimized2(conn, file_path, start_date=None, end_da
         conn.commit()
 
 
-def load_parquet_to_postgres_optimized(conn, file_path, start_date=None, end_date=None, chunksize=100000):
+def load_parquet_to_postgres_copy_from(conn, file_path, start_date=None, end_date=None, chunksize=100000):
     """Load data from a parquet file into a Postgres database"""
     # Connect to the database
     with conn.cursor() as cur:
@@ -261,7 +261,7 @@ if __name__ == '__main__':
     if args.full_load:
         drop_table(conn)
         create_table(conn)
-        load_parquet_to_postgres_optimized(conn, args.file)
+        load_parquet_to_postgres_optimized2(conn, args.file)
         print("Done loading data by full load ....")
 
     elif args.partial_load:
@@ -281,7 +281,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
         check_partial_load_availability(conn)
-        load_parquet_to_postgres(conn, args.file)
+        load_parquet_to_postgres_optimized2(conn, args.file)
         delete_rows_outside_date_range(conn, start_date, end_date)
 
         print("Done loading data by partial load ....")

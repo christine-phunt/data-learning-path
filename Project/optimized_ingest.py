@@ -1,11 +1,14 @@
 import pandas as pd
 import pyarrow as pa
+import time
+
+start_time = time.time()  # get current time
 
 try:
     # Read in the two CSV files in chunks and specify data types and columns to read
     df1 = pd.read_csv('member_profile.csv', usecols=['member_id', 'member_name'], dtype={
                       'member_id': 'int32', 'member_name': 'category'}, chunksize=100000)
-    df2 = pd.read_csv('transactions.csv', usecols=['member_id', 'transaction_type', 'created_date', 'price'], parse_dates=['created_date'], dtype={
+    df2 = pd.read_csv('generated_transactions.csv', usecols=['member_id', 'transaction_type', 'created_date', 'price'], parse_dates=['created_date'], dtype={
                       'member_id': 'int32', 'transaction_type': 'category', 'price': 'float32'}, chunksize=100000)
 
     # Merge the two DataFrames in chunks and append them to a list
@@ -33,6 +36,11 @@ finally:
     print(" --------------- ")
     print("Execution completed. File converted to parquet. See `output.parquet`")
     print(" --------------- ")
+    end_time = time.time()  # get current time again
+
+    elapsed_time = end_time - start_time
+    print(f"Processing took {elapsed_time:.2f} seconds.")
+
 
 #####
 # In this optimized version, we use the usecols parameter to read only the columns we need and the dtype parameter to specify the data types of the columns.
