@@ -185,32 +185,6 @@ def load_parquet_to_postgres_optimized2(conn, file_path, start_date=None, end_da
         conn.commit()
 
 
-def load_parquet_to_postgres_copy_from(conn, file_path, start_date=None, end_date=None, chunksize=100000):
-    """Load data from a parquet file into a Postgres database"""
-    # Connect to the database
-    with conn.cursor() as cur:
-        # Drop the 'transactions' table if '-f' is used
-        if start_date is None and end_date is None:
-            drop_table(conn)
-            create_table(conn)
-
-        # Check if the 'transactions' table exists if '-p' is used
-        else:
-            check_partial_load_availability(conn)
-
-        # Use COPY command to load the data in bulk
-        with open(file_path, 'r') as f:
-            with conn.cursor() as cur:
-                cur.copy_from(f, 'transactions', sep=',', columns=(
-                    'member_id', 'member_name', 'transaction_type', 'created_date', 'price'))
-
-        # Delete all rows outside the specified date range if '-p' is used
-        if start_date is not None and end_date is not None:
-            delete_rows_outside_date_range(conn, start_date, end_date)
-
-        conn.commit()
-
-
 def create_view(conn):
     # create cursor
     cur = conn.cursor()
@@ -261,7 +235,7 @@ if __name__ == '__main__':
     if args.full_load:
         drop_table(conn)
         create_table(conn)
-        load_parquet_to_postgres_optimized2(conn, args.file)
+        load_parquet_to_postgres_copy_from(conn, args.file)
         print("Done loading data by full load ....")
 
     elif args.partial_load:
@@ -281,7 +255,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
         check_partial_load_availability(conn)
-        load_parquet_to_postgres_optimized2(conn, args.file)
+        load_parquet_to_postgres_copy_from(conn, args.file)
         delete_rows_outside_date_range(conn, start_date, end_date)
 
         print("Done loading data by partial load ....")
