@@ -13,7 +13,10 @@ bucket_name = str(input('Please input bucket name to be created: '))
 # Bucket Name argument is mandatory and bucket name should be unique
 response1 = client.create_bucket(
     ACL='private',
-    Bucket=bucket_name
+    Bucket=bucket_name,
+    CreateBucketConfiguration={
+        'LocationConstraint': 'eu-west-1'
+    },
 )
 
 print(response1['Location'])
