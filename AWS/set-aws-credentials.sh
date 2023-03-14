@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ -f ".env" ]; then
+if [ -f "AWS.env" ]; then
   export $(cat .env | xargs)
 fi
 

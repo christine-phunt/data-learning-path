@@ -53,7 +53,7 @@ try:
         print(" *************** ")
         print("Files successfully converted to parquet.")
 
-        if not os.path.isfile(dest_file_name):
+        if not os.path.isfile(f"data/{dest_file_name}"):
             raise FileNotFoundError(f"{dest_file_name} file not found")
 
         else:
